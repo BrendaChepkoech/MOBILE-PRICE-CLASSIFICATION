@@ -1,0 +1,749 @@
+---
+title: "Mobile phone price classifiaction"
+author: "Group 1"
+date: "2/8/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Group Members
+Stephen Njuguna - Scrum Master
+Kevin Kilonzo
+Ayub Bett
+Brenda Chepkoech
+
+# Mobile Phone Price Classification
+
+ 
+
+## Business Understanding
+
+The increasing use of smartphones is evident in the world today. For mobile dealers, an effective pricing strategy is essential for continued sales success. It is important to have a carefully planned pricing strategy.
+
+Smartphone prices can be affected by a wide range of factors, such as brand and the length of time a particular device has been on the market. The ability to use a device internationally can also affect its price. If a device has a high-resolution camera and a lot of storage capacity, it will likely cost more than a unit without less notable capabilities. Those individuals who are willing to enter a contract, however, may be able to get a smartphone loaded with desirable features at a bargain price.
+
+### Defining the question
+
+Basing on the phones features we build a machine learning model that predicts  its price range. 
+
+
+### Defining the  metrics for Success
+
+Build a machine learning model that predicts the price class of a mobile phone with an accuracy of above 85%.
+
+### Experimental Design 
+
+The following approach will be taken to achieve our goal:
+1) Loading the data
+
+2) Data cleaning
+
+3) Exploratory Data analysis
+
+4) Feature Engineering
+
+5) Data modelling using Supervised learning algorithms
+
+6) Challenging the solution Using unsupervised learning.
+
+7) Conclusions and reccomendations.
+
+
+## Reading data
+
+```{r}
+#Loading the libraries necessary for loading the data
+library(data.table)
+library(tidyverse)
+
+```
+
+```{r}
+#Loading the dataset
+phone_df <- read.csv("C:\\Users\\pharyz\\Downloads\\train (2).csv", header = TRUE) 
+
+#Previewing the top 6 entries
+head(phone_df)
+```
+```{r}
+#Checking if there are null values
+colSums(is.na(phone_df))
+
+```
+
+The dataset has no null values.
+
+```{r}
+#Checking if there are duplicated entries
+dupli <- phone_df[duplicated(phone_df),]
+dupli
+```
+
+The dataset has no duplicates 
+
+### Checking For outliers
+```{r}
+# Splitting the numerical  variables from the categorical variables
+num_columns <- c("battery_power", "clock_speed", "fc", "int_memory", "m_dep", "mobile_wt","n_cores", "pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
+
+num_df<- phone_df[,num_columns]
+#Previewing the numerical columns
+head(num_df)
+
+# Getting the categorical variables
+cat_df <- phone_df[c(2,4,6,18,19,20,21)]
+head(cat_df)
+
+```
+
+```{r}
+# Plotting boxplots to check for outliers
+op <- par(mfrow=c(1,1))  # to put boxplots side by side
+lapply(seq(num_df), function(x) 
+  boxplot(x=num_df[[x]], xlab=names(num_df)[x], main=paste("Boxplot",colnames(num_df[,x]))))
+par(op) 
+
+```
+
+
+We have outliers in two columns namely front camera megapixels, phone height. Front camera megapixels had three outliers and phone height with one outlier.
+
+
+### Anomaly Detection
+
+```{r}
+summary(num_df)
+```
+From the summary we note that there are no anomalies that can be detected at this point.
+
+## EXPLORATORY DATA ANALYSIS
+
+### UNIVARIATE ANALYSIS
+
+```{r}
+#Converting the encoded columns back to names
+phone_df$price_range <- factor(phone_df$price_range, levels = c(0,1,2,3),
+                       labels = c("low cost", "medium cost", "high cost", "very high cost"))
+
+phone_df$blue <- factor(phone_df$blue, levels = c(0,1),
+                                  labels = c("not", "yes"))
+phone_df$dual_sim <- factor(phone_df$dual_sim, levels = c(0,1),
+                               labels = c("not", "yes"))
+phone_df$four_g <- factor(phone_df$four_g, levels = c(0,1),
+                               labels = c("not", "yes"))
+phone_df$three_g <- factor(phone_df$three_g, levels = c(0,1),
+                               labels = c("not", "yes"))
+phone_df$touch_screen <- factor(phone_df$touch_screen, levels = c(0,1),
+                               labels = c("not", "yes"))
+phone_df$wifi <- factor(phone_df$wifi, levels = c(0,1),
+                               labels = c("not", "yes"))
+```
+
+```{r}
+#plotting price range 
+library(ggplot2)
+ggplot(data=phone_df, aes(x = price_range)) +
+  geom_bar() + labs(title = "Count of the price range") 
+
+```
+
+Dataset has the same amount in each class that consist of low cost, medium cost, high cost, and very high cost.
+
+
+```{r}
+op <- par(mfrow=c(1,1))  # to put histograms side by side
+lapply(seq(num_df), function(x) 
+  hist(x=num_df[[x]], xlab=names(num_df)[x], main=paste("Histogram",colnames(num_df[,x]))))
+par(op) 
+```
+
+
+
+* Most phones are between 500-600 mAh and the distribution is not normal
+* Most phones had the lowest clockspeed between 0.5-.066 Ghz
+* Most phones either had no front camera or the camera had the lowest megapixels of between 0-2
+* Most phones have between 5-10 gb of internal memory
+* Most phones have a depth of between 0.1-0.2cm
+* Most phones have a weight of between 80 - 90 grams
+* Most phones have 4 cores 
+* Most phones have a primary cameras had either no primary camera or had primar cameras with megapixels   of up to 2 
+* Most phones had a pixel resolution height of between 200 - 400. The distribution is left-skewed
+* Most phones had a pixel resolution height of between 800-900
+* Most phones had a ram of 2000 - 2500 Mbs 
+* Most phones had a screen height of between 5-6 cm
+
+
+
+ 
+### BIVARIATE DATA ANALYSIS
+
+
+```{r}
+#Plotting four_G and price range 
+
+ggplot(phone_df, aes(x=price_range, fill = four_g)) +
+  geom_bar(position = "dodge") + labs(title = "Four-G Distribution among the price ranges") 
+```
+
+
+From the phones on the dataset, we note that there is a difference in the four_g phones with a very high cost. Most phones on that range are 4_gs.
+
+
+
+```{r}
+#Plotting three_G and price range 
+
+ggplot(phone_df, aes(x=price_range, fill = three_g)) +
+  geom_bar(position = "dodge") + labs(title = "Three_G Distribution among the price range") 
+```
+
+There is a very low amount of phones that are not 3_G enabled accross all price ranges.
+
+
+```{r}
+#Plotting dual sim and price range 
+library(ggplot2)
+
+ggplot(phone_df, aes(x=price_range, fill = dual_sim)) +
+  geom_bar(position = "dodge") + labs(title = "Dual_sim Distribution among the price ranges") 
+
+```
+  
+  
+  * low cost mobile are bought equally with without dual sim.
+  * Medium cost mobiles with dual sim are bought more than without.
+  * High cost mobile are bought equally with without dual sim.
+  * Very high cost mobile with dula sim are bought more that those without.
+  
+  
+```{r}
+#Ploting mobiles with wifi aganist price range 
+ggplot(phone_df, aes(x=price_range, fill = wifi)) +
+  geom_bar(position = "dodge") + labs(title = "Wifi Distribution among Price range")
+
+```
+  * low cost mobile with wifi have a small diffence on how they are bought.
+  * Medium cost mobiles with wifi have a small diffence on how they are bought.
+  * High cost mobile with wifi have a small diffence on how they are bought.
+  * Very high cost mobile with with wife are bought more that those without.
+  
+```{r}
+#Ploting mobiles that are touch screen aganist price range 
+ggplot(phone_df, aes(x=price_range, fill = touch_screen)) +
+  geom_bar(position = "dodge") + labs(title = "Touch Screen Distribution among price ranges") 
+
+```
+  * low cost mobiles that are touch screened are bought more than those that not touch screened.
+  * medium cost mobiles that are touch screened are bought more than those that not touch            screened.
+  * high cost mobiles that are not touch screened are bought more than those that are touch         screened.
+  * Very high cost mobiles that are touch screened are bought more than those that are not touch    screened.
+  
+  
+
+
+
+  
+```{r}
+ggplot(phone_df, aes(x=price_range, y=battery_power))+ geom_boxplot() + labs(title = "Battery power distribution by Price range") 
+
+```
+
+
+From the boxplots above we note that as the battery capacity increases the price range of the phone increases.
+
+
+
+```{r}
+ggplot(phone_df, aes(x=price_range, y=clock_speed))+ geom_boxplot() + labs(title = "Clock Speed distribution by Price range") 
+
+```
+
+We also note that the clock speed does not affect the price of the phones.
+
+
+
+```{r}
+#Plotting a scatter plot between battery power and clock speed 
+plot(phone_df$battery_power, phone_df$clock_speed, xlab="Battery power", ylab="clock speed", main = "Scatter plot between clock speed and battery power")
+
+```
+
+There is no correlation battery power and clock speed.
+
+
+
+```{r}
+# Plotting scatter plot of phone weight and battery power
+plot(num_df$battery_power, num_df$mobile_wt, xlab="Battery power", ylab="Phone weight", main = "Scatter plot between phone weight and battery power")
+
+```
+
+
+Battery power and phone weight have no correlation
+
+
+
+```{r}
+# Plotting scatter plot of RAM and internal memory
+plot(num_df$ram, num_df$int_memory, xlab="ram", ylab="Internal Memory", main = "Scatter plot between ram and internal memory")
+```
+
+There is no correlation between ram and internal memory
+
+
+
+
+```{r}
+#Finding the correlation of the numerical columns
+library("dplyr") 
+library(corrplot)
+
+
+#Assigning m to the correlation
+# correlation matrix
+M<-cor(num_df)
+
+corrplot(M, method="number", order = "hclust")
+
+
+```
+* There is a high positive correlation front camera megapixels and primary camera megapixels
+* there is a moderately positive correlation between phone height and phone width
+
+
+
+## FEATURE ENGINEERING
+
+### Label encoding columns
+
+```{r}
+# Import the library for label encoding
+
+library(superml)
+
+```
+
+```{r}
+# Introduce the label encoder object
+label <- LabelEncoder$new()
+
+#Label encoding the columns
+phone_df$price_range <-label$fit_transform(phone_df$price_range)
+phone_df$blue <-label$fit_transform(phone_df$blue)
+phone_df$dual_sim <-label$fit_transform(phone_df$dual_sim)
+phone_df$four_g <-label$fit_transform(phone_df$four_g)
+phone_df$three_g <-label$fit_transform(phone_df$three_g)
+phone_df$touch_screen <-label$fit_transform(phone_df$touch_screen)
+phone_df$wifi <-label$fit_transform(phone_df$wifi)
+
+#Previewing the head
+head(phone_df)
+```
+
+## FEATURE SELECTION
+
+### Random Forest feature Selection
+
+```{r}
+#install.packages('Boruta')
+library(Boruta)
+```
+
+
+```{r}
+boruta_output <- Boruta(price_range~ ., data=phone_df, doTrace=0)
+names(boruta_output)
+```
+```{r}
+# Get significant variables including tentatives
+boruta_signif <- getSelectedAttributes(boruta_output, withTentative = TRUE)
+print(boruta_signif)  
+```
+
+### LINEAR DISCRIMINANT ANALYSIS
+
+
+```{r}
+# Importing the necessary libraries
+  
+library(MASS)
+library(tidyverse)
+library(caret)
+theme_set(theme_classic())
+  
+  
+# Split the data into training (80%) and test set (20%)
+set.seed(123)
+training_data <- phone_df$price_range %>% 
+            createDataPartition(p = 0.8, list = FALSE)
+train_data <- phone_df[training_data, ]
+test_data <- phone_df[-training_data, ]
+
+head(train_data)
+head(test_data)
+```
+```{r}
+#Scaling the data
+prep <- train_data %>% 
+  preProcess(method = c("center", "scale"))
+  
+# Transform the data using the estimated parameters
+train_transform <- prep %>% predict(train_data)
+test_transform <- prep %>% predict(test_data)
+  
+# Fit the model
+lda_model <- lda(price_range~., data = train_transform)
+  
+# Make predictions
+lda_pred <- lda_model %>% predict(test_transform)
+
+```
+
+```{r}
+# Model accuracy
+mean(lda_pred$class==test_transform$price_range)
+  
+lda_model <- lda(price_range~., data = train_transform)
+lda_model
+
+```
+
+
+```{r}
+#Selecting the important features
+
+imp_features <- phone_df[c('battery_power', 'px_height', 'px_width', 'sc_h', 'sc_w', 'ram')]
+head(imp_features)
+```
+```{r}
+#Combining the important features with the target columns
+df <- do.call(cbind,list(imp_features, phone_df['price_range']))
+head(df)
+```
+
+
+## SUPERVISED LEARNING
+
+### 1) LOGISTIC REGRESSION
+
+
+```{r}
+# Loading package
+library(caTools)
+library(ROCR) 
+library(nnet)  
+
+
+# Splitting dataset into 80% train with 20% test
+
+split <- sample.split(df, SplitRatio = 0.8)
+split
+
+#Creating a test and train set. 
+train_log <- subset(df, split == "TRUE")
+test_log <- subset(df, split == "FALSE")
+
+#Previewing the top 6 entries of both train and test
+head(train_log)
+head(test_log)
+
+```
+
+
+```{r}
+# Fit the multinomial class to the dataset
+model <- nnet::multinom(price_range ~., data = train_log)
+# Summarize the model
+summary(model)
+# Make predictions
+predicted.classes <- model %>% predict(test_log)
+head(predicted.classes)
+# Model accuracy
+mean(predicted.classes == test_log$price_range)
+
+```
+```{r}
+#Finding the accuracy of the model.
+mean(predicted.classes == test_log$price_range)
+
+```
+
+```{r}
+# Making the Confusion Matrix
+log_cm = table(test_log$`price_range`, predicted.classes)
+confusionMatrix(log_cm)
+```
+From the metric analysis we note that we have 95.87% accuracy with the confusion matrix showing a few misclassified cases.
+
+
+### 2) K-NEAREST NEIGHBOUR
+
+```{r}
+# Loading package
+library(e1071)
+library(class)
+library(caTools)
+library(ROCR)   
+  
+# Splitting data into train
+# and test data
+split <- sample.split(df, SplitRatio = 0.7)
+train_knn <- subset(df, split == "TRUE")
+test_knn <- subset(df, split == "FALSE")
+  
+# Feature Scaling
+train_scale <- scale(train_knn[,c(1:6)])
+test_scale <- scale(test_knn[,c(1:6)])
+  
+# Fitting KNN Model 
+# to training dataset
+classifier_knn <- knn(train = train_knn,
+                      test = test_knn,
+                      cl = train_knn$price_range,
+                      k = 44)
+```
+
+Using a random number of k at 44 we check its accuracy.
+
+
+```{r}
+# Making the Confusion Matrix
+cm = table(test_knn$`price_range`, classifier_knn)
+confusionMatrix(cm)
+```
+Using K at 44 we find a accuracy of 90.9%. We then try and find the optimum number of k
+
+
+#### Finding optimum K
+
+```{r}
+library(ISLR)
+library(caret)
+# Split the data:
+indxTrain <- createDataPartition(y = df$price_range,p = 0.75,list = FALSE)
+training <- df[indxTrain,]
+testing <- df[-indxTrain,]
+# Run k-NN:
+set.seed(400)
+ctrl <- trainControl(method="repeatedcv",repeats = 3)
+knnFit <- train(price_range ~ ., data = training, method = "knn", trControl = ctrl, preProcess = c("center","scale"),tuneLength = 20)
+knnFit
+
+```
+Doing tuning to find the optimum number of neighbour to be 15.
+
+
+#### using optimum k at 15
+```{r}
+# Fitting KNN Model 
+# to training dataset
+classifier_knn2 <- knn(train = train_knn,
+                      test = test_knn,
+                      cl = train_knn$price_range,
+                      k = 15)
+#classifier_knn2
+```
+
+
+```{r}
+# Making the Confusion Matrix
+cm2 = table(test_knn$`price_range`, classifier_knn2)
+confusionMatrix(cm2)
+```
+From the tuned number of neighbours we find a slightly increased accuracy of 91.37.
+
+
+###  3) Support Vector Machine
+
+```{r}
+# Splitting the dataset into the Training set and Test set
+library(caTools)
+ 
+set.seed(123)
+split = sample.split(df$price_range, SplitRatio = 0.75)
+ 
+train_set = subset(df, split == TRUE)
+test_set = subset(df, split == FALSE)
+
+head(train_set)
+head(test_set)
+
+```
+
+
+```{r}
+# Feature Scaling the numerical columns
+train_set[-7] <- scale(train_set[-7])
+test_set[-7] <- scale(test_set[-7])
+
+# Previewing the scaled dataset
+train_set
+test_set
+```
+
+```{r}
+
+# Fitting SVM to the Training set
+library(e1071)
+ 
+svm_classifier = svm(formula = price_range ~ .,
+                 data = train_set,
+                 type = 'C-classification',
+                 kernel = 'linear')
+```
+
+```{r}
+# Predicting the Test set results
+y_pred = predict(svm_classifier, newdata = test_set[-7])
+#y_pred
+```
+
+
+
+```{r}
+# Making the Confusion Matrix
+cm_svm = table(test_set[, 7], y_pred)
+confusionMatrix(cm_svm)
+```
+By tuning the kernel type we find that:
+
+  * Polynomial kernel give a accuracy of 72%
+  * Sigmoid kernel gives an accuracy of 89%
+  * linear kernel gives accuracy of 96%
+  * Radial basis kernel gives an accuracy of 86%
+
+
+
+
+##  UNSUPERVISED LEARNING
+
+
+```{r}
+# Scaling continuous variables
+new_df <- scale(num_df,scale = TRUE)
+head(new_df)
+# removing price_range from categorical
+cat_df <- cat_df[,-7]
+
+#Merging the scaled and categorical dataset
+new_mobile<- do.call(cbind, list(new_df, cat_df))
+head(new_mobile)
+
+```
+
+###  T-SNE
+
+```{r}
+#Creating t-sne model 
+library(caret)  
+library(Rtsne)
+phone_df$price_range<-as.factor(phone_df$price_range)
+colors = rainbow(length(unique(phone_df$price_range)))
+names(colors) = unique(phone_df$price_range)
+tsne_df <- Rtsne(new_mobile, dims = 2, perplexity=50, verbose=TRUE, max_iter = 1000)
+```
+```{r}
+#Plotting the t-sne
+# Plotting our graph and closely examining the graph
+plot(tsne_df$Y, t='n', main="tsne")
+text(tsne_df$Y, labels=phone_df$price_range, col=colors[phone_df$price_range])
+
+```
+
+From the t_Sne plot above we note that there is no distinct clustering that can be noted from the clusters.
+
+
+
+###  K-mean clustering 
+
+#### Finding the optimum  number of K to be used in K means.
+
+```{r}
+library(factoextra)
+library(tidyverse)
+library(cluster)
+
+
+#code for checking optimal with elbow method
+fviz_nbclust(new_mobile, kmeans, method = "wss")    
+
+
+# function to compute average silhouette for k clusters
+avg_sil <- function(k) {
+  km.res <- kmeans(new_mobile, centers = k, nstart = 25)
+  ss <- silhouette(km.res$cluster, dist(new_mobile))
+  mean(ss[, 3])
+}
+# Compute and plot wss for k = 2 to k = 15
+k.values <- 2:15
+# extract avg silhouette for 2-15 clusters
+avg_sil_values <- map_dbl(k.values, avg_sil)
+plot(k.values, avg_sil_values,
+       type = "b", pch = 19, frame = FALSE,
+       xlab = "Number of clusters K",
+       ylab = "Average Silhouettes")
+
+```
+
+From the elbow plot we note that the optimum number of k is 4.
+
+```{r}
+#Creating k mean cluster model assigning the result to the data used to create the tsne
+#Using K to be 4 since we have classes.
+
+df_kmeans <- kmeans(new_mobile,centers = 4)
+```
+
+
+
+```{r}
+# Table of the clusters for k-means
+table(df_kmeans$cluster)
+# calculate silhouette
+library(cluster)   
+sil <- silhouette(df_kmeans$cluster, dist(new_mobile))
+
+# plot silhouette
+library(factoextra)
+fviz_silhouette(sil)
+```
+From the silhoute graph with value of 0.06 it means there is a small separation of the cluster. 
+
+
+
+## Conclusion
+
+  * High-cost mobile without for_g  are bought more than those with four_g.
+  * Very high-cost mobile phones with four_g are bought more than those without.
+  * High-cost mobiles that are not touch screen are bought more than those that are touch  screen
+  * Very high-cost mobiles that are touch screened are bought more than those that are not touch            screened.
+  * High-cost mobile phones are bought equally without a dual sim.
+  * Very high-cost mobile phones with dual sims are bought more than those without.
+  * High-cost mobile phones with wifi have a small difference in how they are bought.
+  * Very high-cost mobile phones with wifi are bought more than those without.
+  * Very high-cost mobile phones with battery power are bought more than those without.
+  * There is no big difference in the clock speed in the different mobile price range
+  * Very high-cost mobile phones with battery power are bought more than those without.
+
+
+## Recommendations 
+  * In order to make more profits;
+
+  * The phone reseller should stock more phones of very high cost with four_g   because they are bought     more than the other phones.
+  * The phone reseller should stock more phones that are of very high cost and are touch screened are       because they bought more than those that are not touch screened.
+  * The phone reseller should stock more phones that are of very high cost and with wifi are because        they are bought more than those without.
+  *The phone reseller should stock more phones that are of very high cost and with dual sim is because      they bought more than those without.
+  * The phone reseller should stock more phones that are of low-cost mobiles that are touch screen          because they are bought more than those that are not touch screened.
+
+
+The most important features in determining the price range were;
+Battery_power- Total energy a battery can store in one time measured in mAh
+RAM- Random Acess Memory in gigabites
+Px_height - Pixel Resolution Height
+Px_width - Pixel Resolution Width
+Sc_h - Screen Height of mobile in cm
+Sc_w - Screen Width of mobile in cm
+
+From the supervised model, the best model for predicting the mobile price class range is the Support Vector Machines model with an accuracy of 96% which was better than the other models used to make predictions.
